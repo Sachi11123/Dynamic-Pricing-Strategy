@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
+import streamlit as st
 
 data = pd.read_csv("dynamic_pricing.csv")
 
@@ -163,3 +164,48 @@ fig.update_layout(
 )
 
 fig.show()
+
+
+
+
+
+
+# Splitting Data
+X = data[["Number_of_Riders", "Number_of_Drivers", "Vehicle_Type", "Expected_Ride_Duration"]]
+y = data["adjusted_ride_cost"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train Model
+model = RandomForestRegressor()
+model.fit(X_train, y_train)
+
+# Function for Prediction
+def predict_price(number_of_riders, number_of_drivers, vehicle_type, expected_ride_duration):
+    vehicle_type_numeric = 1 if vehicle_type == "Premium" else 0
+    input_data = np.array([[number_of_riders, number_of_drivers, vehicle_type_numeric, expected_ride_duration]])
+    return model.predict(input_data)[0]
+
+# Streamlit UI
+st.title("Dynamic Pricing Model App 🚖")
+
+st.sidebar.header("User Input Parameters")
+number_of_riders = st.sidebar.slider("Number of Riders", min_value=1, max_value=100, value=50)
+number_of_drivers = st.sidebar.slider("Number of Drivers", min_value=1, max_value=50, value=25)
+vehicle_type = st.sidebar.selectbox("Vehicle Type", ["Economy", "Premium"])
+expected_ride_duration = st.sidebar.slider("Expected Ride Duration (min)", min_value=5, max_value=120, value=30)
+
+if st.sidebar.button("Predict Price"):
+    predicted_price = predict_price(number_of_riders, number_of_drivers, vehicle_type, expected_ride_duration)
+    st.sidebar.success(f"Predicted Ride Cost: ₹{predicted_price:.2f}")
+
+# Predict on Test Set
+y_pred = model.predict(X_test)
+
+# Plot Actual vs Predicted
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=y_test, y=y_pred, mode='markers', name="Actual vs Predicted"))
+fig.add_trace(go.Scatter(x=[min(y_test), max(y_test)], y=[min(y_test), max(y_test)], mode='lines', name="Ideal", line=dict(color="red", dash="dash")))
+
+fig.update_layout(title="Actual vs Predicted Ride Costs", xaxis_title="Actual Cost", yaxis_title="Predicted Cost")
+st.plotly_chart(fig)
